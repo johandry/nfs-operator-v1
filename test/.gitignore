@@ -1,1 +1,2 @@
-terraform_key.json
+.terraform_key.json
+.target_account
