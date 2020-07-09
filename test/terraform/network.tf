@@ -35,15 +35,17 @@ resource "ibm_is_security_group_rule" "iac_iks_security_group_rule_tcp_k8s" {
   }
 }
 
-resource "ibm_is_security_group_rule" "iac_iks_security_group_rule_ssh_k8s" {
-  group     = ibm_is_vpc.iac_iks_vpc.default_security_group
-  direction = "inbound"
-  tcp {
-    port_min = 22
-    port_max = 22
-  }
-}
+// Enable to ssh to the nodes
+// resource "ibm_is_security_group_rule" "iac_iks_security_group_rule_ssh_k8s" {
+//   group     = ibm_is_vpc.iac_iks_vpc.default_security_group
+//   direction = "inbound"
+//   tcp {
+//     port_min = 22
+//     port_max = 22
+//   }
+// }
 
+// Enable to ping to the nodes
 // resource "ibm_is_security_group_rule" "iac_iks_security_group_rule_icmp_k8s" {
 //   group     = ibm_is_vpc.iac_iks_vpc.default_security_group
 //   direction = "inbound"
