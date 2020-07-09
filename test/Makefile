@@ -132,3 +132,4 @@ delete:
 
 clean: delete destroy
 	$(RM) -rf terraform/.terraform
+	$(RM) -rf terraform/terraform.tfstate*
