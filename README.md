@@ -4,6 +4,7 @@
   - [How to use](#how-to-use)
   - [Development and Tests](#development-and-tests)
     - [Requirements](#requirements)
+    - [Build](#build)
     - [Testing](#testing)
     - [Cleanup](#cleanup)
   - [External Resources](#external-resources)
@@ -81,13 +82,38 @@ workers_count  = [3, 2, 1]
 k8s_version    = "1.18"
 ```
 
-### Testing
+### Build
 
-The tests will create a simple Kubernetes cluster and create the Kubernetes resources to have a NFS provisioner. This is done executing the rule `apply` from the `test` directory.
+To create the IKS cluster and deploy the required resources execute the `apply` rule.
 
 ```bash
 cd test
 make apply
+```
+
+Depending of the development or test to do, you either execute the test `apply-provisioner` or ~~`apply-operator`~~, then deploy the consumer application with the rule `apply-consumer`.
+
+```bash
+make apply-consumer
+```
+
+### Testing
+
+To test it's required to complete the build rules in the previous section, then execute the `test-provisioner` or ~~`test-operator`~~ rule from the `test` directory.
+
+```bash
+cd test
+make apply
+```
+
+```bash
+make apply-provisioner apply-consumer
+make test-provisioner
+```
+
+```bash
+make apply-operator apply-consumer
+make test-operator
 ```
 
 ### Cleanup

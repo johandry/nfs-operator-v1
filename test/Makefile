@@ -6,6 +6,8 @@ C_GREEN 		= $(shell echo -e "\033[92m")
 P 			 		= $(shell echo -e "\033[92m> \033[0m")
 OK 			 		= $(shell echo -e "\033[92m[ OK  ]\033[0m")
 ERROR		 		= $(shell echo -e "\033[91m[ERROR] \033[0m")
+PASS		 		= $(shell echo -e "\033[92m[PASS ]\033[0m")
+FAIL		 		= $(shell echo -e "\033[91m[FAIL ] \033[0m")
 
 default: apply
 
@@ -32,16 +34,30 @@ check-kubernetes:
 	@if TERM=dumb kubectl cluster-info | grep -q 'Kubernetes master is running at'; then $(ECHO) "$(P) $(OK) Kubernetes cluster"; else $(ECHO) "$(P) $(ERROR) Kubernetes cluster"; exit 1; fi
 
 wait-pvc:
-	@printf "Waiting for PVC to be Bound"
+	@printf "Waiting for IBM Cloud Block PVC to be Bound"
 	@while kubectl get pvc nfs-block-custom | grep -q 'Pending'; do printf .; sleep 3; done
 
 check-pvc:
-	@if kubectl get pvc nfs-block-custom | grep -q 'Bound'; then $(ECHO) "$(P) $(OK) PVC"; else $(ECHO) "$(P) $(ERROR) PVC"; exit 1; fi
+	@if kubectl get pvc nfs-block-custom | grep -q 'Bound'; then $(ECHO) "$(P) $(OK) IBM Cloud Block PVC"; else $(ECHO) "$(P) $(ERROR) IBM Cloud Block PVC"; exit 1; fi
+
+wait-nfs:
+	@printf "Waiting for NFS PVC to be Bound"
+	@while kubectl get pvc nfs | grep -q 'Pending'; do printf .; sleep 3; done
+
+check-nfs:
+	@if kubectl get pvc nfs | grep -q 'Bound'; then $(ECHO) "$(P) $(OK) NFS PVC"; else $(ECHO) "$(P) $(ERROR) NFS PVC"; exit 1; fi
+
+wait-consumer:
+	@printf "Waiting for consumer service"
+	@while [[ $$($(MAKE) get-endpoint) != *.cloud ]]; do printf .; sleep 3; done
+
+check-consumer:
+	@if [[ $$($(MAKE) get-endpoint) == *.cloud ]]; then $(ECHO) "$(P) $(OK) Consumer Service"; else $(ECHO) "$(P) $(ERROR) Consumer Service"; exit 1; fi
 
 print-target:
 	@$(ECHO) "$(P) ibmcloud target: "; ibmcloud target
 
-check: check-ibmcloud check-init check-api-key check-kubectl print-target
+check: check-ibmcloud check-terraform check-api-key check-kubectl print-target
 
 ## Init
 
@@ -65,10 +81,12 @@ apply-terraform: check-terraform check-ibmcloud check-api-key
 	ibmcloud target -g $$(terraform output -state=terraform/terraform.tfstate resource_group)
 	ibmcloud ks cluster config -cluster $$(terraform output -state=terraform/terraform.tfstate cluster_id)
 
-apply-provisioner: apply-pvc
+apply-provisioner: check-pvc
 	kubectl apply -f kubernetes/nfs-provisioner/deployment.yaml
 	kubectl apply -f kubernetes/nfs-provisioner/rbac.yaml
 	kubectl apply -f kubernetes/nfs-provisioner/class.yaml
+	kubectl apply -f kubernetes/nfs-provisioner/claim.yaml
+	$(MAKE) wait-nfs
 
 apply-operator:
 	kubectl apply -f kubernetes/nfs-operator
@@ -77,9 +95,30 @@ apply-pvc:
 	kubectl apply -f kubernetes/pvc.yaml
 	@$(MAKE) wait-pvc
 
-apply-kubernetes: check-kubectl check-kubernetes apply-pvc apply-provisioner
+apply-consumer: docker-container check-nfs
+	kubernetes apply -f kubernetes/consumer/cm.yaml
+	kubernetes apply -f kubernetes/consumer/deployment.yaml
+	$(MAKE) wait-consumer
+
+apply-kubernetes: check-kubectl check-kubernetes apply-pvc
 
 apply: apply-terraform apply-kubernetes
+
+## Build
+
+docker-container:
+	docker build -t johandry/movies:1.0 -f kubernetes/consumer/Dockerfile .
+	docker push johandry/movies:1.0
+
+get-endpoint:
+	@kubectl get svc movies -o=jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+## Test
+
+test-provisioner: check-pvc check-nfs
+	@$(ECHO) "$(P) Testing Provisioner"
+	@ADDRESS=$$($(MAKE) get-endpoint); \
+	if [[ $$(curl -s $$ADDRESS/movies/1067 | grep title | sed 's/.*: "\(.*\)",/\1/') == "Seven Samurai" ]]; then $(ECHO) "\t$(PASS) Check Movie"; else $(ECHO) "\t$(FAIL) Check Movie"; exit 1; fi
 
 ## Cleanup
 
