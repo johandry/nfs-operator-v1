@@ -122,7 +122,7 @@ To destroy your environment and cleanup what you have created, execute:
 
 ```bash
 cd test
-make clean
+make clean-all
 ```
 
 ## External Resources

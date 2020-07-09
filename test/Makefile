@@ -126,10 +126,12 @@ destroy:
 	cd terraform; terraform destroy -auto-approve
 
 delete:
-	kubectl delete -f kubernetes/pvc.yaml
+	kubectl delete -f kubernetes/consumer
 	kubectl delete -f kubernetes/nfs-provisioner
-	kubectl delete -f kubernetes/nfs-operator
+	kubectl delete -f kubernetes/pvc.yaml
 
 clean: delete destroy
 	$(RM) -rf terraform/.terraform
 	$(RM) -rf terraform/terraform.tfstate*
+
+clean-all: delete destroy clean
