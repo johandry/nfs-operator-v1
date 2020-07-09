@@ -40,21 +40,25 @@ check-kubernetes:
 
 wait-pvc:
 	@printf "Waiting for IBM Cloud Block PVC to be Bound"
-	@while kubectl get pvc nfs-block-custom | grep -q 'Pending'; do printf .; sleep 3; done
+	@while kubectl get pvc nfs-block-custom | grep -q 'Pending'; do printf .; sleep 3; done; echo
 
 check-pvc:
 	@if kubectl get pvc nfs-block-custom | grep -q 'Bound'; then $(ECHO) "$(P) $(OK) IBM Cloud Block PVC"; else $(ECHO) "$(P) $(ERROR) IBM Cloud Block PVC"; exit 1; fi
 
 wait-nfs:
 	@printf "Waiting for NFS PVC to be Bound"
-	@while kubectl get pvc nfs | grep -q 'Pending'; do printf .; sleep 3; done
+	@while kubectl get pvc nfs | grep -q 'Pending'; do printf .; sleep 3; done; echo
 
 check-nfs:
 	@if kubectl get pvc nfs | grep -q 'Bound'; then $(ECHO) "$(P) $(OK) NFS PVC"; else $(ECHO) "$(P) $(ERROR) NFS PVC"; exit 1; fi
 
 wait-consumer:
 	@printf "Waiting for consumer service"
-	@while [[ $$($(MAKE) get-endpoint) != *.cloud ]]; do printf .; sleep 3; done
+	@while [[ $$($(MAKE) get-endpoint) != *.cloud ]]; do printf .; sleep 3; done; echo
+	@printf "Waiting for consumer pod"
+	@while kubectl get pods | grep movies | grep -q -v Running; do printf .; sleep 3; done; echo
+
+	kubectl get pods | grep movies | grep -q Running
 
 check-consumer:
 	@if [[ $$($(MAKE) get-endpoint) == *.cloud ]]; then $(ECHO) "$(P) $(OK) Consumer Service"; else $(ECHO) "$(P) $(ERROR) Consumer Service"; exit 1; fi
@@ -98,8 +102,8 @@ apply-pvc:
 	@$(MAKE) wait-pvc
 
 apply-consumer: docker-container check-nfs
-	kubernetes apply -f kubernetes/consumer/cm.yaml
-	kubernetes apply -f kubernetes/consumer/deployment.yaml
+	kubectl apply -f kubernetes/consumer/cm.yaml
+	kubectl apply -f kubernetes/consumer/deployment.yaml
 	$(MAKE) wait-consumer
 
 apply-kubernetes: check-kubectl check-kubernetes apply-pvc
