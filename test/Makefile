@@ -121,10 +121,18 @@ get-endpoint:
 
 ## Test
 
-test: check-pvc check-nfs
-	@$(ECHO) "$(P) Testing:"
+test: check-pvc check-nfs test-movie test-file
+
+test-movie:
 	@ADDRESS=$$($(MAKE) get-endpoint); \
-	if [[ $$(curl -s $$ADDRESS/movies/1067 | grep title | sed 's/.*: "\(.*\)",/\1/') == "Seven Samurai" ]]; then $(ECHO) "\t$(PASS) Check Movie"; else $(ECHO) "\t$(FAIL) Check Movie"; exit 1; fi
+	if [[ $$(curl -s $$ADDRESS/movies/1067 | grep title | sed 's/.*: "\(.*\)",/\1/') == "Seven Samurai" ]]; \
+		then $(ECHO) "$(P) $(PASS) Test: Check Get Movie API"; \
+		else $(ECHO) "$(P) $(FAIL) Test: Check Get Movie API"; exit 1; fi
+
+test-file:
+	@if kubectl exec --stdin --tty $(kubectl get pods | grep movies | awk '{print $1}') -- cat /data/db.min.json | grep -q '"movies": '; \
+		then $(ECHO) "$(P) $(PASS) Test: Check JSON File"; \
+		else $(ECHO) "$(P) $(FAIL) Test: Check JSON File"; exit 1; fi
 
 ## Cleanup
 
