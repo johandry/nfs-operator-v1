@@ -130,7 +130,7 @@ delete:
 	kubectl delete -f kubernetes/nfs-provisioner
 	kubectl delete -f kubernetes/pvc.yaml
 
-clean: delete destroy
+clean:
 	$(RM) -rf terraform/.terraform
 	$(RM) -rf terraform/terraform.tfstate*
 

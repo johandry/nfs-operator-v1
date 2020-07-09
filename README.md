@@ -84,11 +84,11 @@ k8s_version    = "1.18"
 
 ### Build
 
-To create the IKS cluster and deploy the required resources execute the `apply` rule.
+To create the IKS cluster and deploy the required resources execute the `init` and `apply` rules.
 
 ```bash
 cd test
-make apply
+make init apply
 ```
 
 Depending of the development or test to do, you either execute the test `apply-provisioner` or ~~`apply-operator`~~, then deploy the consumer application with the rule `apply-consumer`.
