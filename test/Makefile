@@ -9,9 +9,14 @@ ERROR		 		= $(shell echo -e "\033[91m[ERROR] \033[0m")
 PASS		 		= $(shell echo -e "\033[92m[PASS ]\033[0m")
 FAIL		 		= $(shell echo -e "\033[91m[FAIL ] \033[0m")
 
+# RESOURCE sets the object to build, deploy or test. Available options are: provisioner
+# Soon will be operator
+R 			 			 ?= provisioner
+RESOURCE 			 ?= $(R)
+
 default: apply
 
-all: check apply
+all: apply test
 
 ## Checks:
 
@@ -81,15 +86,12 @@ apply-terraform: check-terraform check-ibmcloud check-api-key
 	ibmcloud target -g $$(terraform output -state=terraform/terraform.tfstate resource_group)
 	ibmcloud ks cluster config -cluster $$(terraform output -state=terraform/terraform.tfstate cluster_id)
 
-apply-provisioner: check-pvc
-	kubectl apply -f kubernetes/nfs-provisioner/deployment.yaml
-	kubectl apply -f kubernetes/nfs-provisioner/rbac.yaml
-	kubectl apply -f kubernetes/nfs-provisioner/class.yaml
-	kubectl apply -f kubernetes/nfs-provisioner/claim.yaml
+apply-$(RESOURCE): check-pvc
+	kubectl apply -f kubernetes/nfs-$(RESOURCE)/deployment.yaml
+	kubectl apply -f kubernetes/nfs-$(RESOURCE)/rbac.yaml
+	kubectl apply -f kubernetes/nfs-$(RESOURCE)/class.yaml
+	kubectl apply -f kubernetes/nfs-$(RESOURCE)/claim.yaml
 	$(MAKE) wait-nfs
-
-apply-operator:
-	kubectl apply -f kubernetes/nfs-operator
 
 apply-pvc:
 	kubectl apply -f kubernetes/pvc.yaml
@@ -102,7 +104,7 @@ apply-consumer: docker-container check-nfs
 
 apply-kubernetes: check-kubectl check-kubernetes apply-pvc
 
-apply: apply-terraform apply-kubernetes
+apply: init apply-terraform apply-kubernetes apply-$(RESOURCE) apply-consumer
 
 ## Build
 
@@ -115,8 +117,8 @@ get-endpoint:
 
 ## Test
 
-test-provisioner: check-pvc check-nfs
-	@$(ECHO) "$(P) Testing Provisioner"
+test: check-pvc check-nfs
+	@$(ECHO) "$(P) Testing:"
 	@ADDRESS=$$($(MAKE) get-endpoint); \
 	if [[ $$(curl -s $$ADDRESS/movies/1067 | grep title | sed 's/.*: "\(.*\)",/\1/') == "Seven Samurai" ]]; then $(ECHO) "\t$(PASS) Check Movie"; else $(ECHO) "\t$(FAIL) Check Movie"; exit 1; fi
 
@@ -130,8 +132,8 @@ delete:
 	kubectl delete -f kubernetes/nfs-provisioner
 	kubectl delete -f kubernetes/pvc.yaml
 
-clean:
+remove:
 	$(RM) -rf terraform/.terraform
 	$(RM) -rf terraform/terraform.tfstate*
 
-clean-all: delete destroy clean
+clean: delete destroy remove
