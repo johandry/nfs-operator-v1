@@ -3,13 +3,13 @@ package nfs
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	ibmcloudv1alpha1 "github.com/johandry/nfs-operator/pkg/apis/ibmcloud/v1alpha1"
+	"github.com/johandry/nfs-operator/pkg/controller/storage"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -101,56 +101,46 @@ func (r *ReconcileNfs) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info(fmt.Sprintf("Instance Specs: %+v", instance.Spec))
+	objList := storage.NewNFSProvisioner(r.client, instance.Namespace).Apply()
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	errs := []string{}    // list of errors
+	created := []string{} // list of objects created
+	skipped := []string{} // list of objects that already exists
 
 	// Set Nfs instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
+	for name, obj := range objList {
+		if obj.Err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %s", name, obj.Err))
+			// reqLogger.Error(fmt.Errorf("failed to reconcile the resource %q, Namespace: %s", name, instance.Namespace))
+			continue
+		} else if obj.Obj == nil {
+			skipped = append(skipped, name)
+			reqLogger.Info("Skip reconcile: Resource already exists", "Namespace", instance.Namespace, "Name", name)
+			continue
 		}
+		created = append(created, name)
+		reqLogger.Info("Created a new resource", "Namespace", obj.Obj.GetNamespace(), "Name", name)
 
-		// Pod created successfully - don't requeue
+		if err := controllerutil.SetControllerReference(instance, obj.Obj, r.scheme); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: cannot set reference in controler. %s", name, err))
+		}
+	}
+
+	if len(skipped) == 0 {
+		reqLogger.Info("Skip reconcile for: Resources already exists", "Namespace", instance.Namespace, "Resources", strings.Join(skipped, ", "))
+	}
+	if len(created) == 0 {
+		reqLogger.Info("Resources created", "Namespace", request.Namespace, "Resources", strings.Join(created, ", "))
+	}
+
+	if len(errs) == 0 {
 		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *ibmcloudv1alpha1.Nfs) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+	errStr := ""
+	for _, err := range errs {
+		errStr = fmt.Sprintf("%s\n\t%s", errStr, err)
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
+	err = fmt.Errorf("Failed to reconcile. Errors: %s", errStr)
+	return reconcile.Result{}, err
 }
