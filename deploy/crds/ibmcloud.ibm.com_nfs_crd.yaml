@@ -11,7 +11,14 @@ spec:
     singular: nfs
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.capacity
+      name: Capacity
+      type: string
+    - jsonPath: .spec.storageclass
+      name: StorageClass
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Nfs is the Schema for the nfs API
@@ -32,6 +39,8 @@ spec:
             description: NfsSpec defines the desired state of Nfs
             properties:
               backingStorage:
+                description: BackingStorageSpec defines the desired state of the Backing
+                  Storage
                 properties:
                   pvcName:
                     type: string
@@ -41,12 +50,21 @@ spec:
                     type: string
                 type: object
               provisionerAPI:
+                default: example.com/nfs
                 type: string
               storageClass:
+                default: example-nfs
                 type: string
             type: object
           status:
             description: NfsStatus defines the observed state of Nfs
+            properties:
+              accessMode:
+                type: string
+              capacity:
+                type: string
+              status:
+                type: string
             type: object
         type: object
     served: true

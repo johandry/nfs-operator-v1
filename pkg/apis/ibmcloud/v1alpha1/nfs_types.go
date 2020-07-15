@@ -7,7 +7,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type BackingStorage struct {
+// BackingStorageSpec defines the desired state of the Backing Storage
+type BackingStorageSpec struct {
 	PvcName      string `json:"pvcName,omitempty"`
 	StorageClass string `json:"storageClass,omitempty"`
 	StorageSize  string `json:"storageSize,omitempty"`
@@ -19,9 +20,16 @@ type NfsSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	StorageClass   string         `json:"storageClass,omitempty"`
-	ProvisionerAPI string         `json:"provisionerAPI,omitempty"`
-	BackingStorage BackingStorage `json:"backingStorage,omitempty"`
+	// +optional
+	// +kubebuilder:default=example-nfs
+	StorageClass string `json:"storageClass,omitempty"`
+
+	// +optional
+	// +kubebuilder:default=example.com/nfs
+	ProvisionerAPI string `json:"provisionerAPI,omitempty"`
+
+	// +optional
+	BackingStorage BackingStorageSpec `json:"backingStorage,omitempty"`
 }
 
 // NfsStatus defines the observed state of Nfs
@@ -29,6 +37,10 @@ type NfsStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	Capacity   string `json:"capacity,omitempty"`
+	AccessMode string `json:"accessMode,omitempty"`
+	Status     string `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -36,6 +48,8 @@ type NfsStatus struct {
 // Nfs is the Schema for the nfs API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=nfs,scope=Namespaced
+// +kubebuilder:printcolumn:JSONPath=".status.capacity",name=Capacity,type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.storageclass",name=StorageClass,type=string
 type Nfs struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
