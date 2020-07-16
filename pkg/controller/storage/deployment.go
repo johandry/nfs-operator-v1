@@ -28,21 +28,22 @@ func (p *NfsProvisioner) newServiceAccount() *corev1.ServiceAccount {
 func (p *NfsProvisioner) applyServiceAccount() (string, metav1.Object, error) {
 	serviceAccount := p.newServiceAccount()
 	name := serviceAccount.Name
+	fullName := serviceAccount.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &corev1.ServiceAccount{}
 	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
 	if err == nil { // exists
-		return name, nil, nil
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), serviceAccount); err != nil {
-			return name, serviceAccount, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, serviceAccount, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, serviceAccount, nil
+		return fullName, serviceAccount, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
 /*
@@ -133,21 +134,22 @@ func (p *NfsProvisioner) newService() *corev1.Service {
 func (p *NfsProvisioner) applyService() (string, metav1.Object, error) {
 	service := p.newService()
 	name := service.Name
+	fullName := service.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &corev1.Service{}
 	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
 	if err == nil { // exists
-		return name, nil, nil
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), service); err != nil {
-			return name, service, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, service, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, service, nil
+		return fullName, service, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
 /*
@@ -217,7 +219,7 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: appLabelnName
+					ServiceAccountName: appLabelnName,
 					Containers: []corev1.Container{
 						{
 							Name:  appLabelnName,
@@ -278,13 +280,13 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 									Protocol:      corev1.ProtocolUDP,
 								},
 							},
-							SecurityContext: corev1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								Capabilities: &corev1.Capabilities{
 									Add: []corev1.Capability{
 										"DAC_READ_SEARCH",
-                		"SYS_RESOURCE",
-									}
-								}
+										"SYS_RESOURCE",
+									},
+								},
 							},
 							Args: []string{
 								"-provisioner=ibmcloud/nfs",
@@ -292,39 +294,42 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name: "POD_IP",
-									ValueFrom: corev1.EnvVarSource{
-										FieldRef: corev1.ObjectFieldSelector{
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "status.podIP",
 										},
 									},
 								},
 								{
-									Name: "SERVICE_NAME",
+									Name:  "SERVICE_NAME",
 									Value: appLabelnName,
 								},
 								{
 									Name: "POD_NAMESPACE",
-									ValueFrom: corev1.EnvVarSource{
-										FieldRef: corev1.ObjectFieldSelector{
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",
 										},
 									},
 								},
 							},
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							VolumeMounts: []corev1.VolumeMounts{
+							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "export-volume",
-              		MountPath: "/export",
+									Name:      "export-volume",
+									MountPath: "/export",
 								},
 							},
 						},
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "export-volume"
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "nfs-block-custom",
+							Name: "export-volume",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									// TODO: Change the ClaimName for the user provided PVC
+									ClaimName: "nfs-block-custom",
+								},
 							},
 						},
 					},
@@ -338,21 +343,22 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 func (p *NfsProvisioner) applyDeployment() (string, metav1.Object, error) {
 	deployment := p.newDeployment()
 	name := deployment.Name
+	fullName := deployment.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &appsv1.Deployment{}
 	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
 	if err == nil { // exists
-		return name, nil, nil
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), deployment); err != nil {
-			return name, deployment, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, deployment, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, deployment, nil
+		return fullName, deployment, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
 /*

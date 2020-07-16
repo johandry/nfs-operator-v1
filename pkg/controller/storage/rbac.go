@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // newClusterRole returns the definition of this resource as should exists
@@ -32,21 +31,25 @@ func (p *NfsProvisioner) newClusterRole() *rbacv1.ClusterRole {
 func (p *NfsProvisioner) applyClusterRole() (string, metav1.Object, error) {
 	clusterRole := p.newClusterRole()
 	name := clusterRole.Name
+	fullName := clusterRole.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &rbacv1.ClusterRole{}
-	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
-	if err == nil { // exists
-		return name, nil, nil
+	objKey, err := client.ObjectKeyFromObject(clusterRole)
+	if err != nil {
+		return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	}
+	if err = p.client.Get(context.TODO(), objKey, found); err == nil { // exists
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), clusterRole); err != nil {
-			return name, clusterRole, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, clusterRole, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, clusterRole, nil
+		return fullName, clusterRole, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
 /*
@@ -83,13 +86,24 @@ func (p *NfsProvisioner) newClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			Name: "run-" + appLabelnName,
 		},
 		Subjects: []rbacv1.Subject{
-			// TODO
+			{
+				Kind:      "ServiceAccount",
+				Name:      appLabelnName,
+				Namespace: p.Namespace,
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			// TODO
+			Kind:     "ClusterRole",
+			Name:     appLabelnName + "-runner",
+			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
 }
+
+// func (p *NfsProvisioner) getClusterRoleBinding() runtime.Object {
+// 	r := p.ObjectForContent(contentClusterRoleBinding)
+
+// }
 
 // applyClusterRoleBinding creates this resource if does not exists
 // nil, nil => exists
@@ -99,24 +113,28 @@ func (p *NfsProvisioner) newClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 func (p *NfsProvisioner) applyClusterRoleBinding() (string, metav1.Object, error) {
 	clusterRoleBinding := p.newClusterRoleBinding()
 	name := clusterRoleBinding.Name
+	fullName := clusterRoleBinding.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &rbacv1.ClusterRoleBinding{}
-	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
-	if err == nil { // exists
-		return name, nil, nil
+	objKey, err := client.ObjectKeyFromObject(clusterRoleBinding)
+	if err != nil {
+		return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	}
+	if err = p.client.Get(context.TODO(), objKey, found); err == nil { // exists
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), clusterRoleBinding); err != nil {
-			return name, clusterRoleBinding, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, clusterRoleBinding, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, clusterRoleBinding, nil
+		return fullName, clusterRoleBinding, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
-/*
+var contentClusterRoleBinding = []byte(`
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -129,8 +147,8 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: nfs-provisioner-runner
-  apiGroup: rbac.authorization.k8s.io
-*/
+	apiGroup: rbac.authorization.k8s.io
+`)
 
 // newRole returns the definition of this resource as should exists
 func (p *NfsProvisioner) newRole() *rbacv1.Role {
@@ -152,21 +170,22 @@ func (p *NfsProvisioner) newRole() *rbacv1.Role {
 func (p *NfsProvisioner) applyRole() (string, metav1.Object, error) {
 	role := p.newRole()
 	name := role.Name
+	fullName := role.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &rbacv1.Role{}
 	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
 	if err == nil { // exists
-		return name, nil, nil
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), role); err != nil {
-			return name, role, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, role, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, role, nil
+		return fullName, role, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
 /*
@@ -203,21 +222,22 @@ func (p *NfsProvisioner) newRoleBinding() *rbacv1.RoleBinding {
 func (p *NfsProvisioner) applyRoleBinding() (string, metav1.Object, error) {
 	roleBinding := p.newRoleBinding()
 	name := roleBinding.Name
+	fullName := roleBinding.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &rbacv1.RoleBinding{}
 	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
 	if err == nil { // exists
-		return name, nil, nil
+		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
 		if err := p.client.Create(context.TODO(), roleBinding); err != nil {
-			return name, roleBinding, fmt.Errorf("fail to create the object. %s", err)
+			return fullName, roleBinding, fmt.Errorf("fail to create the object. %s", err)
 		}
-		return name, roleBinding, nil
+		return fullName, roleBinding, nil
 	}
 
-	return name, nil, fmt.Errorf("fail to retreive the object. %s", err)
+	return fullName, nil, fmt.Errorf("fail to retreive the object. %s", err)
 }
 
 /*

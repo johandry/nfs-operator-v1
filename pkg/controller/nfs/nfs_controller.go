@@ -3,7 +3,6 @@ package nfs
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	ibmcloudv1alpha1 "github.com/johandry/nfs-operator/pkg/apis/ibmcloud/v1alpha1"
 	"github.com/johandry/nfs-operator/pkg/controller/storage"
@@ -103,44 +102,48 @@ func (r *ReconcileNfs) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	objList := storage.NewNFSProvisioner(r.client, instance.Namespace).Apply()
 
-	errs := []string{}    // list of errors
-	created := []string{} // list of objects created
-	skipped := []string{} // list of objects that already exists
+	errs := []string{} // list of errors
+	// created := []string{} // list of objects created
+	// skipped := []string{} // list of objects that already exists
 
 	// Set Nfs instance as the owner and controller
 	for name, obj := range objList {
 		if obj.Err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %s", name, obj.Err))
-			// reqLogger.Error(fmt.Errorf("failed to reconcile the resource %q, Namespace: %s", name, instance.Namespace))
-			continue
-		} else if obj.Obj == nil {
-			skipped = append(skipped, name)
-			reqLogger.Info("Skip reconcile: Resource already exists", "Namespace", instance.Namespace, "Name", name)
+			reqLogger.Error(obj.Err, "Failed to reconcile the resource", "Resource.Name", name)
 			continue
 		}
-		created = append(created, name)
-		reqLogger.Info("Created a new resource", "Namespace", obj.Obj.GetNamespace(), "Name", name)
+
+		if obj.Obj == nil {
+			// skipped = append(skipped, name)
+			reqLogger.Info("Skip reconcile: Resource already exists", "Resource.Name", name)
+			continue
+		}
+
+		// created = append(created, name)
+		reqLogger.Info("Created a new resource", "Resource.Name", name)
 
 		if err := controllerutil.SetControllerReference(instance, obj.Obj, r.scheme); err != nil {
+			reqLogger.Error(obj.Err, "Failed to set controller reference to resource", "Resource.Name", name)
 			errs = append(errs, fmt.Sprintf("%s: cannot set reference in controler. %s", name, err))
 		}
 	}
 
-	if len(skipped) == 0 {
-		reqLogger.Info("Skip reconcile for: Resources already exists", "Namespace", instance.Namespace, "Resources", strings.Join(skipped, ", "))
-	}
-	if len(created) == 0 {
-		reqLogger.Info("Resources created", "Namespace", request.Namespace, "Resources", strings.Join(created, ", "))
-	}
+	// if len(skipped) != 0 {
+	// 	reqLogger.Info("Skip reconcile for: Resources already exists", "Resources", strings.Join(skipped, ", "))
+	// }
+	// if len(created) != 0 {
+	// 	reqLogger.Info("Resources created", "Resources", strings.Join(created, ", "))
+	// }
 
 	if len(errs) == 0 {
 		return reconcile.Result{}, nil
 	}
 
 	errStr := ""
-	for _, err := range errs {
-		errStr = fmt.Sprintf("%s\n\t%s", errStr, err)
+	for n, err := range errs {
+		errStr = fmt.Sprintf("%s(%d) - %s.", errStr, n, err)
 	}
-	err = fmt.Errorf("Failed to reconcile. Errors: %s", errStr)
+	err = fmt.Errorf("Failed to reconcile. Errors (%d): %s", len(errs), errStr)
 	return reconcile.Result{}, err
 }

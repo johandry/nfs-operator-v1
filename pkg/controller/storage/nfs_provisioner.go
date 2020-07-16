@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	appLabelnName = "nfs-provisioner"
-	imageName     = "quay.io/kubernetes_incubator/nfs-provisioner:latest"
-	storageClassName = "ibmcloud-nfs"
-	provisionerName = "ibmcloud/nfs"
+	appLabelnName             = "nfs-provisioner"
+	imageName                 = "quay.io/kubernetes_incubator/nfs-provisioner:latest"
+	storageClassName          = "ibmcloud-nfs"
+	provisionerName           = "ibmcloud/nfs"
 	persistentVolumeClaimName = "nfs"
 )
 
@@ -62,10 +62,10 @@ func NewNFSProvisioner(client client.Client, namespace string /* , opt *NfsProvi
 		nfsProvisioner.applyService,
 		nfsProvisioner.applyDeployment,
 		// rbac.go
-		nfsProvisioner.applyClusterRole
-		nfsProvisioner.applyClusterRoleBinding
-		nfsProvisioner.applyRole
-		nfsProvisioner.applyRoleBinding
+		nfsProvisioner.applyClusterRole,
+		nfsProvisioner.applyClusterRoleBinding,
+		nfsProvisioner.applyRole,
+		nfsProvisioner.applyRoleBinding,
 		// class.go
 		nfsProvisioner.applyStorageClass,
 		// claim
@@ -89,3 +89,17 @@ func (p *NfsProvisioner) Apply() NfsProvisionerResources {
 
 	return list
 }
+
+// func (p *NfsProvisioner) ObjectFromContent(content []byte) runtime.Object {
+// 	r := bytes.NewBuffer(content)
+// 	result := p.client.NewBuilder().
+// 		Unstructured().
+// 		Schema(validation.Schema).
+// 		ContinueOnError().
+// 		NamespaceParam(p.Namespace).DefaultNamespace().
+// 		Stream(r, "").
+// 		Flatten().
+// 		Do()
+
+// 	return result.Object
+// }
