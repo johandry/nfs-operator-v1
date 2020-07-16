@@ -43,11 +43,15 @@ clean-operator:
 init-operator: clean-operator
 	sed -i.org 's|REPLACE_IMAGE|$(IMAGE)|g' deploy/operator.yaml
 
-deploy: init-operator
+deploy: init-operator deploy-to-test
 	kubectl apply -f deploy/service_account.yaml
 	kubectl apply -f deploy/role.yaml
 	kubectl apply -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
+
+deploy-to-test: init-operator
+	cp -R deploy/*.yaml test/kubernetes/nfs-operator/
+	$(RM) -f test/kubernetes/nfs-operator/operator.yaml.org
 
 deploy-crds:
 	kubectl apply -f deploy/crds/*_crd.yaml
