@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	appLabelnName             = "nfs-provisioner"
+	appName                   = "nfs-provisioner"
 	imageName                 = "quay.io/kubernetes_incubator/nfs-provisioner:latest"
 	storageClassName          = "ibmcloud-nfs"
 	provisionerName           = "ibmcloud/nfs"

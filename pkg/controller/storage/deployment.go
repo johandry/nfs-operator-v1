@@ -15,7 +15,7 @@ import (
 func (p *NfsProvisioner) newServiceAccount() *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appLabelnName,
+			Name: appName,
 		},
 	}
 }
@@ -57,9 +57,9 @@ metadata:
 func (p *NfsProvisioner) newService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appLabelnName,
+			Name: appName,
 			Labels: map[string]string{
-				"app": appLabelnName,
+				"app": appName,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -120,7 +120,7 @@ func (p *NfsProvisioner) newService() *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"app": appLabelnName,
+				"app": appName,
 			},
 		},
 	}
@@ -200,12 +200,12 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appLabelnName,
+			Name: appName,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": appLabelnName,
+					"app": appName,
 				},
 			},
 			Replicas: &replicas,
@@ -215,14 +215,14 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": appLabelnName,
+						"app": appName,
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: appLabelnName,
+					ServiceAccountName: appName,
 					Containers: []corev1.Container{
 						{
-							Name:  appLabelnName,
+							Name:  appName,
 							Image: imageName,
 							Ports: []corev1.ContainerPort{
 								{
@@ -302,7 +302,7 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 								},
 								{
 									Name:  "SERVICE_NAME",
-									Value: appLabelnName,
+									Value: appName,
 								},
 								{
 									Name: "POD_NAMESPACE",
