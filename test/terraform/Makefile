@@ -24,7 +24,7 @@ check-ibmcloud:
 check-api-key:
 	@if [[ -n $$IC_API_KEY ]];\
 		then $(ECHO) "$(P) $(OK) IC_API_KEY";\
-		else $(ECHO) '$(P) $(ERROR) IC_API_KEY. Execute: make api-key; export IC_API_KEY=$$(jq -r .apikey .terraform_key.json)';  exit 1; fi
+		else $(ECHO) '$(P) $(ERROR) IC_API_KEY. Execute: make api-key; export IC_API_KEY=$$(jq -r .apikey test/terraform/.terraform_key.json)';  exit 1; fi
 
 check-terraform:
 	@if terraform version | grep -q 'Terraform v'; then $(ECHO) "$(P) $(OK) terraform"; else $(ECHO) "$(P) $(ERROR) terraform"; exit 1; fi

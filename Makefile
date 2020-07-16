@@ -66,6 +66,9 @@ deploy: deploy-operator deploy-crds
 
 ## Test
 
+environment:
+	$(MAKE) -C test environment
+
 test-local:
 	OPERATOR_NAME=$(OPERATOR_NAME) operator-sdk run local --watch-namespace=default
 

@@ -24,14 +24,14 @@ check-kubectl:
 	@if kubectl version | grep -q 'Client Version'; then $(ECHO) "$(P) $(OK) kubectl"; else $(ECHO) "$(P) $(ERROR) kubectl"; exit 1; fi
 
 check-kubernetes:
-	$(MAKE) -f ./terraform test
+	$(MAKE) -C ./terraform test
 
 check: check-kubectl check-kubernetes
 
 ## Init
 
 environment:
-	$(MAKE) -f ./terraform all
+	$(MAKE) -C ./terraform all
 
 deploy-%:
 	$(MAKE) -C kubernetes $*
