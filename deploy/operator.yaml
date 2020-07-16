@@ -16,7 +16,7 @@ spec:
       containers:
         - name: nfs-operator
           # Replace this with the built image name
-          image: nfs-operator:1.0
+          image: REPLACE_IMAGE
           command:
           - nfs-operator
           imagePullPolicy: Always
