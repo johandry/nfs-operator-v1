@@ -62,6 +62,12 @@ deploy-crds:
 	kubectl apply -f deploy/crds/*_crd.yaml
 	kubectl apply -f deploy/crds/*_cr.yaml
 
+deploy-pvc:
+	$(MAKE) -C test deploy-pvc
+
+deploy-consumer:
+	$(MAKE) -C test deploy-pvc
+
 deploy: deploy-operator deploy-crds
 
 ## Test
