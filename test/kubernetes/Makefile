@@ -112,12 +112,12 @@ list-nfs-operator:
 	-@$(ECHO) "$(P) Service Account"; kubectl get sa nfs-operator 2>/dev/null || true
 
 delete-nfs-operator:
-	-kubectl apply -f nfs-operator/crds/*_cr.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-operator/crds/*_crd.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-operator/operator.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-operator/role_binding.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-operator/role.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-operator/service_account.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-operator/crds/*_cr.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-operator/crds/*_crd.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-operator/operator.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-operator/role_binding.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-operator/role.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-operator/service_account.yaml 2>/dev/null || true
 
 deploy-nfs-provisioner:
 	-kubectl apply -f nfs-provisioner/deployment.yaml
@@ -139,10 +139,10 @@ list-nfs-provisioner:
 		while read pv; do $(ECHO) "$(P) NFS Persistent Volume: $$pv"; kubectl get pv $$pv 2>/dev/null; done || true
 
 delete-nfs-provisioner:
-	-kubectl apply -f nfs-provisioner/claim.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-provisioner/class.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-provisioner/rbac.yaml 2>/dev/null || true
-	-kubectl apply -f nfs-provisioner/deployment.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-provisioner/claim.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-provisioner/class.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-provisioner/rbac.yaml 2>/dev/null || true
+	-kubectl delete -f nfs-provisioner/deployment.yaml 2>/dev/null || true
 
 ### Operator:
 deploy-nfs: deploy-nfs-operator deploy-nfs-operator-crds
