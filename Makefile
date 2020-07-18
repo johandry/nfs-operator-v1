@@ -20,9 +20,7 @@ FAIL	 		= $(shell echo -e "\033[91m[FAIL ]\033[0m")
 
 default: build-operator
 
-all: build-operator deploy test delete
-
-all-local: build-operator deploy test-local
+all: build-operator deploy test-local
 
 ## Build
 
@@ -45,18 +43,13 @@ build-operator: generate build-image push-image
 rename-operator-yaml:
 	if [[ -e deploy/operator.yaml.org ]]; then mv deploy/operator.yaml.org deploy/operator.yaml 2>/dev/null; fi
 
-init-operator: rename-operator-yaml
-	sed -i.org 's|REPLACE_IMAGE|$(IMAGE)|g' deploy/operator.yaml
 
-deploy-operator: init-operator cp-deploy-to-test
+
+deploy-operator: init-operator release-to-test
 	kubectl apply -f deploy/service_account.yaml
 	kubectl apply -f deploy/role.yaml
 	kubectl apply -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
-
-cp-deploy-to-test: init-operator
-	cp -R deploy/*.yaml test/kubernetes/nfs-operator/
-	$(RM) -f test/kubernetes/nfs-operator/operator.yaml.org
 
 deploy-crds:
 	kubectl apply -f deploy/crds/*_crd.yaml
@@ -69,6 +62,22 @@ deploy-consumer:
 	$(MAKE) -C test deploy-pvc
 
 deploy: deploy-operator deploy-crds
+
+## Release
+
+init-operator: rename-operator-yaml
+	sed -i.org 's|REPLACE_IMAGE|$(IMAGE)|g' deploy/operator.yaml
+
+release-to-test: init-operator
+	cp -R deploy/*.yaml test/kubernetes/nfs-operator/
+	$(RM) -f test/kubernetes/nfs-operator/operator.yaml.org
+
+release:
+	cat deploy/service_account.yaml  > docs/nfs_provisioner.yaml
+	cat deploy/role.yaml 						>> docs/nfs_provisioner.yaml
+	cat deploy/role_binding.yaml		>> docs/nfs_provisioner.yaml
+	cat deploy/operator.yaml 				>> docs/nfs_provisioner.yaml
+	cat deploy/crds/*_crd.yaml 			>> docs/nfs_provisioner.yaml
 
 ## Test
 
