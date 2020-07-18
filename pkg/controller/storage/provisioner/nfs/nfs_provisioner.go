@@ -1,7 +1,8 @@
 package storage
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ibmcloudv1alpha1 "github.com/johandry/nfs-operator/pkg/apis/ibmcloud/v1alpha1"
+	"github.com/johandry/nfs-operator/pkg/controller/storage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -13,50 +14,25 @@ const (
 	persistentVolumeClaimName = "nfs"
 )
 
-// const deploymentReplicas = 1
-
-// NfsProvisionerOpt
-// type NfsProvisionerOpt struct {
-// 	Replicas *int32
-// }
-
 // NfsProvisioner provision a NFS server on a Pod
 type NfsProvisioner struct {
-	client    client.Client
 	Namespace string
-	applyFn   []NfsProvisionerApplyFn
-	// opt       NfsProvisionerOpt
+	spec      ibmcloudv1alpha1.NfsSpec
+	status    ibmcloudv1alpha1.NfsStatus
+	client    client.Client
+	applyFn   []storage.ApplyFn
 }
 
-// NfsProvisionerApplyFn is a generic function to apply a resource
-type NfsProvisionerApplyFn func() (string, metav1.Object, error)
-
-// NfsProvisionerResource object to create
-type NfsProvisionerResource struct {
-	Obj metav1.Object
-	Err error
-}
-
-// NfsProvisionerResources list of object created
-type NfsProvisionerResources map[string]*NfsProvisionerResource
-
-// NewNFSProvisioner creates a new NFS Provisioner to apply the required resources if doesn't exists
-func NewNFSProvisioner(client client.Client, namespace string /* , opt *NfsProvisionerOpt */) *NfsProvisioner {
-	// if opt == nil {
-	// 	replicas := deploymentReplicas
-
-	// 	opt := NfsProvisionerOpt{
-	// 		Replicas: &replicas,
-	// 	}
-	// }
-
+// New creates a new NFS Provisioner to apply the required resources if doesn't exists
+func New(client client.Client, namespace string, spec ibmcloudv1alpha1.NfsSpec, status ibmcloudv1alpha1.NfsStatus) *NfsProvisioner {
 	nfsProvisioner := &NfsProvisioner{
 		client:    client,
 		Namespace: namespace,
-		// opt:       opt,
+		spec:      spec,
+		status:    status,
 	}
 
-	nfsProvisioner.applyFn = []NfsProvisionerApplyFn{
+	nfsProvisioner.applyFn = []storage.ApplyFn{
 		// deployment.go
 		nfsProvisioner.applyServiceAccount,
 		nfsProvisioner.applyService,
@@ -68,7 +44,7 @@ func NewNFSProvisioner(client client.Client, namespace string /* , opt *NfsProvi
 		nfsProvisioner.applyRoleBinding,
 		// class.go
 		nfsProvisioner.applyStorageClass,
-		// claim
+		// claim.go
 		nfsProvisioner.applyPersistentVolumeClaim,
 	}
 
@@ -76,18 +52,18 @@ func NewNFSProvisioner(client client.Client, namespace string /* , opt *NfsProvi
 }
 
 // Apply create all the NFS Provisioner resources if they do not exists
-func (p *NfsProvisioner) Apply() NfsProvisionerResources {
-	list := NfsProvisionerResources{}
+func (p *NfsProvisioner) Apply() storage.Resources {
+	resources := storage.Resources{}
 
 	for _, fn := range p.applyFn {
 		name, serviceAccount, err := fn()
-		list[name] = &NfsProvisionerResource{
+		resources[name] = &storage.Resource{
 			Obj: serviceAccount,
 			Err: err,
 		}
 	}
 
-	return list
+	return resources
 }
 
 // func (p *NfsProvisioner) ObjectFromContent(content []byte) runtime.Object {

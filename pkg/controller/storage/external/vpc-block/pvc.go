@@ -1,4 +1,4 @@
-package storage
+package vpcblock
 
 import (
 	"context"
@@ -11,28 +11,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-/*
-kind: PersistentVolumeClaim
+var contentPersistentVolumeClaim = []byte(`
 apiVersion: v1
+kind: PersistentVolumeClaim
 metadata:
-  name: nfs
-  // annotations:
-  //   volume.beta.kubernetes.io/storage-class: "ibmcloud-nfs"
+  name: nfs-block-custom
 spec:
-	storageClass: "ibmcloud-nfs"
+  storageClassName: ibmc-vpc-block-general-purpose
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
-      storage: 1Mi
-*/
+      storage: 10Gi
+`)
 
 // newPersistentVolumeClaim returns the definition of this resource as should exists
-func (p *NfsProvisioner) newPersistentVolumeClaim() *corev1.PersistentVolumeClaim {
-	storageClassNameStr := storageClassName
+func (b *VpcBlock) newPersistentVolumeClaim() *corev1.PersistentVolumeClaim {
+	storageClassNameStr := b.storageClassName
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: persistentVolumeClaimName,
+			Name:      persistentVolumeClaimName,
+			Namespace: b.Namespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClassNameStr,
@@ -41,7 +40,7 @@ func (p *NfsProvisioner) newPersistentVolumeClaim() *corev1.PersistentVolumeClai
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("1Mi"),
+					corev1.ResourceStorage: resource.MustParse(b.storageSize),
 				},
 			},
 		},
@@ -53,19 +52,19 @@ func (p *NfsProvisioner) newPersistentVolumeClaim() *corev1.PersistentVolumeClai
 // nil, err => fail to retreive
 // ok,  nil => created
 // ok,  err => fail to create
-func (p *NfsProvisioner) applyPersistentVolumeClaim() (string, metav1.Object, error) {
-	persistentVolumeClaim := p.newPersistentVolumeClaim()
+func (b *VpcBlock) applyPersistentVolumeClaim() (string, metav1.Object, error) {
+	persistentVolumeClaim := b.newPersistentVolumeClaim()
 	name := persistentVolumeClaim.Name
 	fullName := persistentVolumeClaim.GetObjectKind().GroupVersionKind().Kind + "/" + name
 
 	found := &corev1.PersistentVolumeClaim{}
-	err := p.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: p.Namespace}, found)
+	err := b.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: b.Namespace}, found)
 	if err == nil { // exists
 		return fullName, nil, nil
 	}
 
 	if errors.IsNotFound(err) { // does not exists, not found
-		if err := p.client.Create(context.TODO(), persistentVolumeClaim); err != nil {
+		if err := b.client.Create(context.TODO(), persistentVolumeClaim); err != nil {
 			return fullName, persistentVolumeClaim, fmt.Errorf("fail to create the object. %s", err)
 		}
 		return fullName, persistentVolumeClaim, nil

@@ -42,16 +42,17 @@ rules:
 func (p *NfsProvisioner) newClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appName + "-runner",
+			Name:      appName + "-runner",
+			Namespace: p.Namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{},
+				APIGroups: []string{""},
 				Resources: []string{"persistentvolumes"},
 				Verbs:     []string{"get", "list", "watch", "create", "delete"},
 			},
 			{
-				APIGroups: []string{},
+				APIGroups: []string{""},
 				Resources: []string{"persistentvolumeclaims"},
 				Verbs:     []string{"get", "list", "watch", "update"},
 			},
@@ -61,12 +62,12 @@ func (p *NfsProvisioner) newClusterRole() *rbacv1.ClusterRole {
 				Verbs:     []string{"get", "list", "watch"},
 			},
 			{
-				APIGroups: []string{},
+				APIGroups: []string{""},
 				Resources: []string{"events"},
 				Verbs:     []string{"create", "update", "patch"},
 			},
 			{
-				APIGroups: []string{},
+				APIGroups: []string{""},
 				Resources: []string{"services", "endpoints"},
 				Verbs:     []string{"get"},
 			},
@@ -195,11 +196,12 @@ rules:
 func (p *NfsProvisioner) newRole() *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "leader-locking-" + appName,
+			Name:      "leader-locking-" + appName,
+			Namespace: p.Namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{},
+				APIGroups: []string{""},
 				Resources: []string{"endpoints"},
 				Verbs:     []string{"get", "list", "watch", "create", "update", "patch"},
 			},
@@ -253,7 +255,8 @@ roleRef:
 func (p *NfsProvisioner) newRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "leader-locking-" + appName,
+			Name:      "leader-locking-" + appName,
+			Namespace: p.Namespace,
 		},
 		Subjects: []rbacv1.Subject{
 			{

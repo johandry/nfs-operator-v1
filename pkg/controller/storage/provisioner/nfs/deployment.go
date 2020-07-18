@@ -15,7 +15,8 @@ import (
 func (p *NfsProvisioner) newServiceAccount() *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appName,
+			Name:      appName,
+			Namespace: p.Namespace,
 		},
 	}
 }
@@ -57,7 +58,8 @@ metadata:
 func (p *NfsProvisioner) newService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appName,
+			Name:      appName,
+			Namespace: p.Namespace,
 			Labels: map[string]string{
 				"app": appName,
 			},
@@ -200,7 +202,8 @@ func (p *NfsProvisioner) newDeployment() *appsv1.Deployment {
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appName,
+			Name:      appName,
+			Namespace: p.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{

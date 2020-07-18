@@ -6,6 +6,8 @@ import (
 
 	ibmcloudv1alpha1 "github.com/johandry/nfs-operator/pkg/apis/ibmcloud/v1alpha1"
 	"github.com/johandry/nfs-operator/pkg/controller/storage"
+	vpcblock "github.com/johandry/nfs-operator/pkg/controller/storage/external/vpc-block"
+	nfsprovisioner "github.com/johandry/nfs-operator/pkg/controller/storage/provisioner/nfs"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -100,14 +102,27 @@ func (r *ReconcileNfs) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, err
 	}
 
-	objList := storage.NewNFSProvisioner(r.client, instance.Namespace).Apply()
+	vpcBlockResources := vpcblock.New(r.client, instance.Namespace, instance.Spec.BackingStorage).Apply()
+	if result, err := r.setReference("VPC Block", instance, vpcBlockResources); err != nil {
+		return result, err
+	}
 
-	errs := []string{} // list of errors
-	// created := []string{} // list of objects created
-	// skipped := []string{} // list of objects that already exists
+	nfsProvisionerResources := nfsprovisioner.New(r.client, instance.Namespace, instance.Spec, instance.Status).Apply()
+	if result, err := r.setReference("Nfs Provisioner", instance, nfsProvisionerResources); err != nil {
+		return result, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileNfs) setReference(name string, instance *ibmcloudv1alpha1.Nfs, resources storage.Resources) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Resources.Group", name)
+	reqLogger.Info("Reconciling " + name)
+
+	errs := []string{}
 
 	// Set Nfs instance as the owner and controller
-	for name, obj := range objList {
+	for name, obj := range resources {
 		if obj.Err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %s", name, obj.Err))
 			reqLogger.Error(obj.Err, "Failed to reconcile the resource", "Resource.Name", name)
@@ -115,26 +130,16 @@ func (r *ReconcileNfs) Reconcile(request reconcile.Request) (reconcile.Result, e
 		}
 
 		if obj.Obj == nil {
-			// skipped = append(skipped, name)
 			reqLogger.Info("Skip reconcile: Resource already exists", "Resource.Name", name)
 			continue
 		}
 
-		// created = append(created, name)
 		reqLogger.Info("Created a new resource", "Resource.Name", name)
-
 		if err := controllerutil.SetControllerReference(instance, obj.Obj, r.scheme); err != nil {
 			reqLogger.Error(obj.Err, "Failed to set controller reference to resource", "Resource.Name", name)
 			errs = append(errs, fmt.Sprintf("%s: cannot set reference in controler. %s", name, err))
 		}
 	}
-
-	// if len(skipped) != 0 {
-	// 	reqLogger.Info("Skip reconcile for: Resources already exists", "Resources", strings.Join(skipped, ", "))
-	// }
-	// if len(created) != 0 {
-	// 	reqLogger.Info("Resources created", "Resources", strings.Join(created, ", "))
-	// }
 
 	if len(errs) == 0 {
 		return reconcile.Result{}, nil
@@ -144,6 +149,7 @@ func (r *ReconcileNfs) Reconcile(request reconcile.Request) (reconcile.Result, e
 	for n, err := range errs {
 		errStr = fmt.Sprintf("%s(%d) - %s.", errStr, n, err)
 	}
-	err = fmt.Errorf("Failed to reconcile. Errors (%d): %s", len(errs), errStr)
+	err := fmt.Errorf("Failed to reconcile. Errors (%d): %s", len(errs), errStr)
+
 	return reconcile.Result{}, err
 }
