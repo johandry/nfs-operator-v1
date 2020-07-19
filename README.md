@@ -1,7 +1,6 @@
-# NFS Operator
+# NFS Provisioner Operator
 
-- [NFS Operator](#nfs-operator)
-  - [Deploy the NFS Operator](#deploy-the-nfs-operator)
+- [NFS Provisioner Operator](#nfs-provisioner-operator)
   - [Usage](#usage)
   - [Build](#build)
   - [Testing](#testing)
@@ -9,45 +8,23 @@
     - [Cleanup](#cleanup)
   - [External Resources](#external-resources)
 
-The PersistenVolumeClaim available on IBM Cloud Gen 2 - at this time - only allows access mode `ReadWriteOnce`. Also, there is a limit of block storages you can have in a VPC, as well as there are limitations about the volume size. This operator allows you to have a volume available to many Pods using the same block storage, reducing cost and improving the management of resources. The operator creates a Pod mounting the created or requested PVC and sharing that storage to the cluster using NFS.
+The NFS Provisioner Operator creates a **NFS External Provisioner** which creates a `ReadWriteMany` `PersistentVolumeClaim` to be consumed by any Pod/Container in the cluster. The backend block storage, if not specified, is an IBM Cloud VPC Block using the requested storage class.
 
-## Deploy the NFS Operator
+The goal of this NFS Provisioner Operator is to make it easier to Kubernetes developers to have a PVC that can be used by many pods (`ReadWriteMany`) using the same volume, saving resources and money.
 
-_To be completed ..._
+Refer to the [documentation](./docs/index.md) for more information about the design and architecture of the NFS Provisioner Operator.
 
-Optionally you can create a volume to be used as backup storage. The NFS Provisioner will share the storage from this volume. If it's not created the NFS Provisioner Operator will create it for you with the provided specifications.
+## Usage
 
-To create the volume use the file `kubernetes/pvc.yaml` with the definition of a Persisten Volume Claim with the profile `ibmc-vpc-block-5iops-tier`. As it's a dynamic provisioner, the Persisten Volume will be created. The size cannot be less than 10Gb, it's the minimun.
+Before use it you need to deploy the NFS Provisioner Operator, this is usually done, but not necesarilly, when the cluster is created. The deployment can be done with the following `kubectl` command:
 
-```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: nfs-block-custom
-spec:
-  storageClassName: ibmc-vpc-block-general-purpose
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
+```bash
+kubectl create -f http://
 ```
 
-Modify the Custom Resource file, i.e. `deploy/crds/ibmcloud.ibm.com_v1alpha1_nfs_cr.yaml`, to provide the name of the created PVC, in this case it's `nfs-block-custom`. This is an example of how this file would be:
+The first step after the NFS Provisioner Operator is deployed is to create a NFS CustomResource defining the `storageClassName` and define the backing block storage. The backend block storage will be created by the operartor or you can provide an existing storage accessible through a PVC.
 
-```yaml
-apiVersion: ibmcloud.ibm.com/v1alpha1
-kind: Nfs
-metadata:
-  name: nfs
-spec:
-  storageClass: ibmcloud-nfs
-  provisionerAPI: some-provisioner-api
-  backingStorage:
-    pvcName: nfs-block-custom
-```
-
-If the PVC is not created, then modify the Custom Resource providing all the volume specifications required. This is an example:
+An example of a regular NFS CustomResource could be like this.
 
 ```yaml
 apiVersion: ibmcloud.ibm.com/v1alpha1
@@ -63,13 +40,29 @@ spec:
     storageSize: 10Gi
 ```
 
-_To be completed ..._
+Notice the value of `storageClass` and the values of the `backingStorage` specification. The backend block storage will be of `storageClass` name `ibmc-vpc-block-general-purpose` with **10Gb**.
 
-## Usage
+If you have your own block storage to be used by the NFS Provisioner, read the [documentation](./docs/index.md).
 
-_To be completed ..._
+To use the storage, create a PVC using the given storage class, in this example it is `example-nfs`. The VPC for this example would be like this.
 
-To use the NFS Provider from a container create a volume from a PVC using the same name as defined in the parameter `name` of the NFS Custom Resource. Then, as a regular consumption of the volume, mount it in any directory in the container and use it.
+```yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs
+spec:
+  storageClassName: example-nfs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+```
+
+This VPC request 1Mb and the name is `nfs`, as its access mode is `ReadWriteMany` many containers or Pods can use it.
+
+The following Pod example uses the NFS Provider creating a volume from the PVC using the claim name `nfs`. Then mount the volume in any directory of the container with `volumeMounts`.
 
 This is a simple example of a container that is creating a file in the NFS volume:
 
@@ -99,7 +92,7 @@ spec:
 
 A demo application to use the NFS service can be found in the `kubernetes/consumer` folder and it's a simple API for movies. The database - a single JSON file - is stored in the shared volumen. The deployment uses a initContainer to move the JSON database/file to the shared volume.
 
-_To be completed ..._
+More information can be found in the [documentation](./docs/index.md).
 
 ## Build
 
@@ -107,7 +100,7 @@ The development of the operator focus on basically the files:
 
 - `pkg/apis/ibmcloud/v1alpha1/nfs_types.go`: defines the operator specs and status, modifying this file requires to execute `make generate`
 - `pkg/controller/nfs/nfs_controller.go`: containg the `Reconcile` function to create or delete all the required resources.
-- `pkg/controller/storage`: package with all the logic to create NFS Provisioner and the Backing Storage (PVC)
+- `pkg/controller/storage`: packages with all the logic to create NFS Provisioner and the Backing Storage (PVC)
 
 After modify any of the files it's recommended to execute `make` to generate the CR and CRD's, and to build the Docker container with the NFS Operator and finally push it to the Docker Registry.
 
@@ -115,6 +108,14 @@ To quick test the operator (build, deploy and test locally), execute:
 
 ```bash
 make all
+```
+
+To test using the consumer application on the cluster, execute:
+
+```bash
+make build-operator deploy test
+
+make delete
 ```
 
 Refer to the [DEVELOPMENT](./DEVELOPMENT.md) document for more information. Optionally, read the `Makefile` to be familiar with all the tasks you can execute for testing.
