@@ -72,12 +72,17 @@ release-to-test: init-operator
 	cp -R deploy/*.yaml test/kubernetes/nfs-operator/
 	$(RM) -f test/kubernetes/nfs-operator/operator.yaml.org
 
-release:
+release: init-operator
 	cat deploy/service_account.yaml  > docs/nfs_provisioner.yaml
+	@echo "---"			 								>> docs/nfs_provisioner.yaml
 	cat deploy/role.yaml 						>> docs/nfs_provisioner.yaml
+	@echo "---"			 								>> docs/nfs_provisioner.yaml
 	cat deploy/role_binding.yaml		>> docs/nfs_provisioner.yaml
+	@echo "---"			 								>> docs/nfs_provisioner.yaml
 	cat deploy/operator.yaml 				>> docs/nfs_provisioner.yaml
+	@echo "---"			 								>> docs/nfs_provisioner.yaml
 	cat deploy/crds/*_crd.yaml 			>> docs/nfs_provisioner.yaml
+	@$(MAKE) rename-operator-yaml
 
 ## Test
 
