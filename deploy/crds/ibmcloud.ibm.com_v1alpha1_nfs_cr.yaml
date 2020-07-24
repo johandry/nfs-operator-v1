@@ -1,11 +1,11 @@
 apiVersion: ibmcloud.ibm.com/v1alpha1
 kind: Nfs
 metadata:
-  name: example-nfs
+  name: cluster-nfs
 spec:
-  storageClass: some-class
-  provisionerAPI: some-provisioner-api
+  storageClass: cluster-nfs
+  provisionerAPI: example.com/nfs
   backingStorage:
-    pvcName: some-backing-storage-pvc-name
-    storageClass: some-backing-storage-class-name
-    storageSize: some-backing-storage-size
+    pvcName: export-nfs-block
+    storageClass: ibmc-vpc-block-general-purpose
+    storageSize: 10Gi
