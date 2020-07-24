@@ -339,10 +339,39 @@ To use the NFS Provisioner you need to create several resources, so wouldn't be 
 
 This operator deploy all the resources previously mentioned to have a backend storage and the NFS Provisioner. So, you only need to deploy the operator when the cluster is created, then use the `nfs` custom resource and a PVC to request storage for your containers, as many as you want.
 
-The operator, like most of the operators, is formed by a **Container**, **Deployment** to have this container runing in the cluster, a
+![Application using the NFS Provisioner Operator](./images/NFS_Provisioner-NFS%20Provisioner%20Operator.png)
+
+The operator, like most of the operators, is formed by a **Container** and a **Deployment** to have this containeraized operator runing in the cluster, also a set of resources to setup RBAC for the operator and the **Custom Resource Definition** to define the Nfs resource.
+
+To use the operator you need the **NFS Custom Resource** and a **PVC** to request storage from the NFS Provisioner.
 
 **Container and Deployment**
 
-The operator application is containerazed and available on any reachable Container Registry, in this case we use DockerHub. The operator application is the one that deploy or create all the required resources mentioned before. The operator, among other things, is watching all the resources regulary and keep them with the defined specifications. The container is available on `docker.io/johandry/nfs-operator`.
+The operator application is containerazed and available on any reachable Container Registry, in this case we use DockerHub and it's available on `docker.io/johandry/nfs-operator`. The operator application is the one that deploy or creates all the required resources mentioned before. The operator, among other things, is watching all the resources regulary and keep them with the defined specifications.
 
-This deployment only has one replica and it's used to have the operator container running on the cluster. The deployment can be view at `deploy/operator.yaml` in the [GitHub repo](https://github.com/johandry/nfs-operator/tree/master/deploy).
+The deployment only has one replica and it's used to have the operator container running on the cluster. The deployment can be view at `deploy/operator.yaml` in the [GitHub repo](https://github.com/johandry/nfs-operator/tree/master/deploy).
+
+**Custom Resource Definition**
+
+The Custom Resource Definition (CRD) allow us to define the **Nfs** object to be used like any other Kubernetes object. The CRD can be found in the `deploy/crds/*_nfs_crd.yaml` in the [GitHub repo](https://github.com/johandry/nfs-operator/tree/master/deploy/crds).
+
+**Custom Resource** and **PersistentVolumeClaim**
+
+Once the CRD is created the Nfs object kind can be used by the kubernetes developer or admin using a **Custom Resource** file. The CR is defined in the `pkg/apis/ibmcloud/v1alpha1/nfs_types.go` file in the `NfsSpec` struct.
+
+A demo for a NFS CR would be like the following.
+
+```yaml
+apiVersion: ibmcloud.ibm.com/v1alpha1
+kind: Nfs
+metadata:
+  name: nfs
+  namespace: nfs-test
+spec:
+  storageClass: ibmcloud-nfs
+  provisionerAPI: ibmcloud/nfs
+  backingStorage:
+    pvcName: nfs-block-custom
+```
+
+Creating this CR allow us to claim a volume using the `storageClassName` **ibmcloud-nfs**
