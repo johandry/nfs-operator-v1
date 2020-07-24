@@ -3,7 +3,7 @@ SHELL		= /bin/bash
 OPERATOR_NAME	?= nfs-operator
 KIND 					?= nfs
 APINAME 			?= ibmcloud.ibm.com/v1alpha1
-VERSION				?= 1.0.1
+VERSION				?= 1.0.2
 REGISTRY 			?= johandry
 IMAGE 				 = $(REGISTRY)/$(OPERATOR_NAME):$(VERSION)
 MUTABLE_IMAGE  = $(REGISTRY)/$(OPERATOR_NAME):latest
@@ -20,7 +20,7 @@ FAIL	 		= $(shell echo -e "\033[91m[FAIL ]\033[0m")
 
 default: build-operator
 
-all: build-operator deploy test-local
+all: build-operator release-operator deploy test-local
 
 ## Build
 
@@ -32,47 +32,46 @@ build-image:
 	operator-sdk build $(MUTABLE_IMAGE)
 	docker tag  $(MUTABLE_IMAGE) $(IMAGE)
 
-push-image:
-	docker push $(IMAGE)
-	docker push $(MUTABLE_IMAGE)
-
-build-operator: generate build-image push-image
+build-operator: generate build-image
 
 ## Deploy
 
-rename-operator-yaml:
-	if [[ -e deploy/operator.yaml.org ]]; then mv deploy/operator.yaml.org deploy/operator.yaml 2>/dev/null; fi
-
-
-
-deploy-operator: init-operator release-to-test
+deploy-operator: release-to-test
 	kubectl apply -f deploy/service_account.yaml
 	kubectl apply -f deploy/role.yaml
 	kubectl apply -f deploy/role_binding.yaml
 	kubectl apply -f deploy/operator.yaml
 
-deploy-crds:
+deploy-crd:
 	kubectl apply -f deploy/crds/*_crd.yaml
 	kubectl apply -f deploy/crds/*_cr.yaml
 
 deploy-pvc:
-	$(MAKE) -C test deploy-pvc
+	$(MAKE) -C test/kubernetes deploy-pvc
 
 deploy-consumer:
-	$(MAKE) -C test deploy-pvc
+	$(MAKE) -C test/kubernetes deploy-consumer
 
-deploy: deploy-operator deploy-crds
+deploy: deploy-operator deploy-crd
 
 ## Release
 
-init-operator: rename-operator-yaml
+reset-operator-yaml:
+	if [[ -e deploy/operator.yaml.org ]]; then mv deploy/operator.yaml.org deploy/operator.yaml 2>/dev/null; fi
+
+init-operator-yaml: reset-operator-yaml
 	sed -i.org 's|REPLACE_IMAGE|$(IMAGE)|g' deploy/operator.yaml
 
-release-to-test: init-operator
+release-to-test: init-operator-yaml
 	cp -R deploy/*.yaml test/kubernetes/nfs-operator/
 	$(RM) -f test/kubernetes/nfs-operator/operator.yaml.org
+	@$(MAKE) reset-operator-yaml
 
-release: init-operator
+release-operator:
+	docker push $(IMAGE)
+	docker push $(MUTABLE_IMAGE)
+
+release: build-operator release-operator init-operator-yaml
 	cat deploy/service_account.yaml  > docs/nfs_provisioner.yaml
 	@echo "---"			 								>> docs/nfs_provisioner.yaml
 	cat deploy/role.yaml 						>> docs/nfs_provisioner.yaml
@@ -82,7 +81,7 @@ release: init-operator
 	cat deploy/operator.yaml 				>> docs/nfs_provisioner.yaml
 	@echo "---"			 								>> docs/nfs_provisioner.yaml
 	cat deploy/crds/*_crd.yaml 			>> docs/nfs_provisioner.yaml
-	@$(MAKE) rename-operator-yaml
+	@$(MAKE) reset-operator-yaml
 
 ## Test
 
@@ -97,6 +96,7 @@ test:
 
 ## List Resources
 
+# list the following resources: consumer, pvc, nfs, nfs-operator, nfs-provisioner, all
 list-%:
 	@$(MAKE) -C test/kubernetes $@
 
@@ -104,26 +104,35 @@ list: list-pvc list-nfs list-consumer
 
 ## Cleanup
 
-delete-consumer:
-	$(MAKE) -C test/kubernetes delete-consumer
+delete-operator:
+	kubectl delete -f deploy/operator.yaml
+	kubectl delete -f deploy/role_binding.yaml
+	kubectl delete -f deploy/role.yaml
+	kubectl delete -f deploy/service_account.yaml
 
-delete-nfs-operator:
-	$(MAKE) -C test/kubernetes delete-nfs-operator
-
-delete-nfs-provisioner:
-	$(MAKE) -C test/kubernetes delete-nfs-provisioner
+delete-crd:
+	kubectl delete -f deploy/crds/*_cr.yaml
+	kubectl delete -f deploy/crds/*_crd.yaml
 
 delete-pvc:
 	$(MAKE) -C test/kubernetes delete-pvc
 
-delete: delete-consumer delete-nfs-operator delete-pvc
+delete-consumer:
+	$(MAKE) -C test/kubernetes delete-consumer
+
+delete-nfs-provisioner:
+	$(MAKE) -C test/kubernetes delete-nfs-provisioner
+
+delete:  delete-crd delete-operator
+
+delete-all: delete delete-consumer delete-nfs-provisioner delete-pvc
 
 destroy:
 	$(MAKE) -C test/terraform clean
 
 clean: delete destroy
 
-purge: rename-operator-yaml clean
+purge: reset-operator-yaml clean
 	$(MAKE) -C test remove
 
 ## Bootstrap
