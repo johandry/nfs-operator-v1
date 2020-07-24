@@ -54,7 +54,12 @@ func (r *ResRole) Get() (runtime.Object, error) {
 func (r *ResRole) Apply() error {
 	_, err := r.getRole()
 	exists, err := resources.Exists(err)
-	if exists || err != nil {
+	if exists {
+		r.Log.Info("Skip reconcile: Resource already exists")
+		return nil
+	}
+	if err != nil {
+		r.Log.Error(err, "Failed to reconcile the resource")
 		return err
 	}
 
@@ -69,7 +74,9 @@ func (r *ResRole) Reconcile() (reconcile.Result, error) {
 	if r.Owner == nil {
 		return reconcile.Result{}, fmt.Errorf("the resource %s/%s does not have an owner", r.Object.Namespace, r.Object.Name)
 	}
+	r.Log.Info("Reconciling " + r.Object.Name + " resource")
 	if err := controllerutil.SetControllerReference(r.Owner, r.Object, r.Scheme); err != nil {
+		r.Log.Error(err, "Failed to set controller reference to resource")
 		return reconcile.Result{}, err
 	}
 	err := r.Apply()
