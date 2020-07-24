@@ -16,7 +16,7 @@ spec:
       containers:
         - name: nfs-operator
           # Replace this with the built image name
-          image: johandry/nfs-operator:1.0.1
+          image: johandry/nfs-operator:1.0.2
           command:
           - nfs-operator
           imagePullPolicy: Always
